@@ -1,5 +1,6 @@
 import mask3d.models.resunet as resunet
 import mask3d.models.res16unet as res16unet
+import mask3d.models.mask3d as mask3d
 from mask3d.models.res16unet import (
     Res16UNet34C,
     Res16UNet34A,
