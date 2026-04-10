@@ -2,8 +2,22 @@ import numpy as np
 import open3d as o3d
 from plyfile import PlyData
 from scipy.spatial.transform import Rotation as R_scipy
+from pathlib import Path
+from tkinter import Tk, filedialog
 
-def power_densify_gs(input_path, detail_samples=30, base_samples=5):
+def select_input_file():
+    """Open file dialog to select input PLY file."""
+    root = Tk()
+    root.withdraw()  # Hide the root window
+    
+    file_path = filedialog.askopenfilename(
+        title="Select Gaussian Splatting PLY file to densify",
+        filetypes=[("PLY files", "*.ply"), ("All files", "*.*")]
+    )
+    
+    return file_path
+
+def power_densify_gs(input_path, detail_samples=100, base_samples=20):
     print("Loading PLY...")
     plydata = PlyData.read(input_path)
     v = plydata['vertex']
@@ -76,6 +90,13 @@ def power_densify_gs(input_path, detail_samples=30, base_samples=5):
     return pcd
 
 # Usage
-pcd = power_densify_gs("data/iot_splat.ply", detail_samples=15, base_samples=3)
-o3d.io.write_point_cloud("data/densified_iot2.ply", pcd)
-print("Saved densified point cloud successfully!")
+input_file = select_input_file()
+if input_file:
+    input_path = Path(input_file)
+    output_path = input_path.parent / f"{input_path.stem}_densified.ply"
+    
+    pcd = power_densify_gs(str(input_file), detail_samples=100, base_samples=20)
+    o3d.io.write_point_cloud(str(output_path), pcd)
+    print(f"Saved densified point cloud to: {output_path}")
+else:
+    print("No file selected. Exiting.")

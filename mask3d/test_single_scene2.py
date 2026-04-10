@@ -2,27 +2,15 @@ import torch
 import numpy as np
 import open3d as o3d
 from mask3d import get_model, prepare_data, map_output_to_pointcloud, save_colorized_mesh
-from pathlib import Path
-from tkinter import Tk, filedialog
 
 # Setup paths
 CHECKPOINT_PATH = '/home/cave/3DReconstruction/Mask3D/mask3d/saved/scannet200_val.ckpt'
+INPUT_PLY_PATH = 'data/densified_iot2.ply'         # <--- CHANGE THIS to the path of your test .ply file
+OUTPUT_PLY_PATH = 'data/densified_iot2_labelled2.ply' # Where the final colored mesh will be saved
 
 # Chunking parameters
 CHUNK_SIZE = 3.0  # Process 3m × 3m × 3m chunks
 CHUNK_OVERLAP = 0.3  # 30cm overlap to prevent boundary artifacts
-
-def select_input_file():
-    """Open file dialog to select input PLY file."""
-    root = Tk()
-    root.withdraw()  # Hide the root window
-    
-    file_path = filedialog.askopenfilename(
-        title="Select point cloud PLY file to segment",
-        filetypes=[("PLY files", "*.ply"), ("All files", "*.*")]
-    )
-    
-    return file_path
 
 def chunk_point_cloud(points: np.ndarray, chunk_size: float, overlap: float) -> list:
     """Split point cloud into overlapping spatial chunks.
@@ -58,26 +46,14 @@ def chunk_point_cloud(points: np.ndarray, chunk_size: float, overlap: float) -> 
     return chunks
 
 def main():
-    # Select input file
-    input_path = select_input_file()
-    if not input_path:
-        print("No file selected. Exiting.")
-        return
-    
-    input_file = Path(input_path)
-    
-    # Generate output path with same name + _labelled
-    output_path = input_file.parent / f"{input_file.stem}_labelled.ply"
-    
     print("Loading Mask3D ScanNet200 model...")
-    # 2. Load the model and move to your RTX 40-series GPU
     model = get_model(CHECKPOINT_PATH)
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    print(f"Loading 3D point cloud from {input_path}...")
-    pcd = o3d.io.read_point_cloud(input_path)
+    print(f"Loading point cloud from {INPUT_PLY_PATH}...")
+    pcd = o3d.io.read_point_cloud(INPUT_PLY_PATH)
     points = np.asarray(pcd.points)
     colors = np.asarray(pcd.colors)
     
@@ -111,17 +87,17 @@ def main():
         print(f"  ✓ Chunk {idx+1} complete")
     
     # Save full prediction
-    print(f"\nSaving colorized output to {output_path}...")
+    print(f"\nSaving colorized output to {OUTPUT_PLY_PATH}...")
     # Convert PointCloud to TriangleMesh for save_colorized_mesh compatibility
     output_mesh = o3d.geometry.TriangleMesh()
     output_mesh.vertices = o3d.utility.Vector3dVector(points)
     output_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
     # Reshape labels from (N,) to (N, 1) to match save_colorized_mesh expectations
     labels_reshaped = labels.reshape(-1, 1)
-    save_colorized_mesh(output_mesh, labels_reshaped, str(output_path), colormap='scannet200')
+    save_colorized_mesh(output_mesh, labels_reshaped, OUTPUT_PLY_PATH, colormap='scannet200')
     
     print("\n✓ Success! Chunked inference complete.")
-    print(f"Output saved to: {output_path}")
+    print("You can now open the output file in a 3D viewer like MeshLab.")
 
 if __name__ == "__main__":
     main()
